@@ -58,6 +58,7 @@ async def set_state_exit(user_id: int):
     async with async_session() as session:
         user = await session.get(User, user_id)
         user.chat_state = 'exit'
+        user.companion_id = None
         await session.commit() 
 
 async def get_state(user_id: int):
@@ -126,7 +127,7 @@ async def search_finder_with_filters(user_id: int):
                 )
             )
         )
-        finder = finder.scalars()
+        finder = finder.scalar()
         if finder:
             finder.chat_state, user.chat_state = 'found', 'found'
             
@@ -182,3 +183,8 @@ async def dislike_user(from_user_id: int, to_user_id: int):
         flag_modified(to_user, 'raiting')
         await session.commit()
         return True
+
+async def get_companion(companion_id: int):
+    async with async_session() as session:
+        companion = await session.get(User, companion_id)
+        return companion

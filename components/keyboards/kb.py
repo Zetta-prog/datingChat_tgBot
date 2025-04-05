@@ -17,8 +17,8 @@ back_kb = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 edit_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Возраст', callback_data='edit_age')],
-    [InlineKeyboardButton(text='Пол', callback_data='edit_gender'),
+    [InlineKeyboardButton(text='Возраст', callback_data='edit_age'),
+        InlineKeyboardButton(text='Пол', callback_data='edit_gender'),
         InlineKeyboardButton(text='Имя', callback_data='edit_name')],
     [InlineKeyboardButton(text='Назад', callback_data='back')]
 ])
@@ -43,6 +43,10 @@ filters_kb = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text='Мужской', callback_data='filter_man'),
         InlineKeyboardButton(text='Женский', callback_data='filter_woman')],
     [InlineKeyboardButton(text='назад', callback_data='back')]
+])
+
+back_new_message_kb = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text='Назад', callback_data='back_new_message')]
 ])
 
 def rating(to_user_id: int):

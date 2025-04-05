@@ -4,23 +4,32 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 
+from random import choice
+
 import components.keyboards.kb as kb
 from database.crud import (
     check_user, add_user, add_gender, add_name, add_age, 
     commit_form, set_state_exit, get_companion_id, get_filters,
     add_filter_gender, reset_filter_gender, like_user,
-    dislike_user
+    dislike_user, get_companion
 )
 from components.states.user_states import Form, Dialogue, EditForm
 from components.search_companion import search, search_with_filters
 from core.init_bot import bot, dp
+from config import OPTIONS, DONATE_URL
 
 user_router = Router()
 
 
 @user_router.message(CommandStart())
 async def start(message: Message):
-    answer_text = '<b>Привет этот бот создан для общения!</b>'
+    await add_user(user_id=message.chat.id)
+    filter_gender = await get_filters(user_id=message.from_user.id)
+    if filter_gender is None:
+        filter_gender = 'не указан'
+    else:
+        filter_gender = 'мужской' if filter_gender.get('gender') == 'man' else 'женский'
+    answer_text = f'<b>👋Добро пожаловать в чат-бота для знакомств! Хочешь найти новых друзей или отлично провести время? Скорее ищи собеседника!\nДля работы используй кнопки или команды:\n\n• /start - Запуск\n• /form - Анкета\n• /search - Поиск \n• /info - Правила \n• /stop - Закончить диалог \n• /donate - Поддержать\n\nНе знаешь, о чём поговорить? Используй команду /help а встроенная нейросеть поможет!\n\nФильтр поиска: {filter_gender}</b>'
     await message.answer(answer_text,
                             reply_markup=kb.start_kb)
     await add_user(user_id=message.from_user.id)
@@ -30,52 +39,68 @@ async def start_dialogue(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await callback.message.answer('Нельзя начать поиск в данный момент')
+        await callback.message.answer('<b>Нельзя начать поиск в данный момент</b>')
         return
     user = await check_user(user_id=callback.message.chat.id)
     if user and user.ready == True:
         await state.set_state(Dialogue.search)
-        await callback.message.answer('Ищу собеседника',
+        searching_message = await callback.message.answer('<b><i>Поиск собеседника 🧍</i></b>',
                                         reply_markup=kb.finish_search)
         filters = await get_filters(user_id=callback.message.chat.id)
         if filters:
             companion = await search_with_filters(user_id=callback.message.chat.id)
             if companion:
-                await callback.message.answer('Пользователь найден')
+                companion_id = await get_companion_id(user_id=callback.message.chat.id)
+                companion = await get_companion(companion_id=companion_id)
+                companion_gender = 'мужской' if companion.gender == 'man' else 'женский'
+                await callback.message.answer(f'<b>Пользователь найден, чтобы закончить диалог нажмите /stop\n\nПол: {companion_gender}\nВозраст: {companion.age}\nИмя: {companion.name}</b>')
                 await state.set_state(Dialogue.found)
+                await searching_message.delete()
         else:
             companion = await search(user_id=callback.message.chat.id)
             if companion:
-                await callback.message.answer('Пользователь найден')
+                companion_id = await get_companion_id(user_id=callback.message.chat.id)
+                companion = await get_companion(companion_id=companion_id)
+                companion_gender = 'мужской' if companion.gender == 'man' else 'женский'
+                await callback.message.answer(f'<b>Пользователь найден, чтобы закончить диалог нажмите /stop\n\nПол: {companion_gender}\nВозраст: {companion.age}\nИмя: {companion.name}</b>')
                 await state.set_state(Dialogue.found)
+                await searching_message.delete()
     else:
-        await callback.message.answer('Для начала надо создать анкету, выберите свой пол',
+        await callback.message.answer('<b>Для начала надо создать анкету, выберите свой пол</b>',
                                         reply_markup=kb.gender_kb)
 
 @user_router.message(Command('search'))
 async def search_func(message: Message, state: FSMContext):
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await message.answer('Нельзя начать поиск в данный момент')
+        await message.answer('<b>Нельзя начать поиск в данный момент</b>')
         return
     user = await check_user(user_id=message.from_user.id)
     if user and user.ready == True:
         await state.set_state(Dialogue.search)
-        await message.answer('Ищу собеседника',
+        searching_message = await message.answer('<b><i>Поиск собеседника 🧍</i></b>',
                                         reply_markup=kb.finish_search)
         filters = await get_filters(user_id=message.from_user.id)
         if filters:
             companion = await search_with_filters(user_id=message.from_user.id)
             if companion:
-                await message.answer('Пользователь найден')
+                companion_id = await get_companion_id(user_id=message.chat.id)
+                companion = await get_companion(companion_id=companion_id)
+                companion_gender = 'мужской' if companion.gender == 'man' else 'женский'
+                await message.answer(f'<b>Пользователь найден, чтобы закончить диалог нажмите /stop\n\nПол: {companion_gender}\nВозраст: {companion.age}\nИмя: {companion.name}</b>')
                 await state.set_state(Dialogue.found)
+                await searching_message.delete()
         else:
             companion = await search(user_id=message.from_user.id)
             if companion:
-                await message.answer('Пользователь найден')
+                companion_id = await get_companion_id(user_id=message.chat.id)
+                companion = await get_companion(companion_id=companion_id)
+                companion_gender = 'мужской' if companion.gender == 'man' else 'женский'
+                await message.answer(f'<b>Пользователь найден, чтобы закончить диалог нажмите /stop\n\nПол: {companion_gender}\nВозраст: {companion.age}\nИмя: {companion.name}</b>')
                 await state.set_state(Dialogue.found)
+                await searching_message.delete()
     else:
-        await message.answer('Для начала надо создать анкету, выберите свой пол',
+        await message.answer('<b>Для начала надо создать анкету, выберите свой пол</b>',
                                         reply_markup=kb.gender_kb)
 
 @user_router.callback_query(F.data == 'finish_search')
@@ -83,9 +108,16 @@ async def finish_search(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     current_state = await state.get_state()
     if current_state != 'Dialogue:search':
-        await callback.message.answer('Поиск не начат')
+        await callback.message.answer('<b>Поиск не активен</b>')
         return
-    await callback.message.answer('Поиск отменен',
+    filter_gender = await get_filters(user_id=callback.message.chat.id)
+    if filter_gender is None:
+        filter_gender = 'не указан'
+    else:
+        filter_gender = 'мужской' if filter_gender.get('gender') == 'man' else 'женский'
+    answer_text = f'<b>Для работы с ботом используй кнопки или команды:\n\n• /start - Запуск\n• /form - Анкета\n• /search - Поиск \n• /info - Правила \n• /stop - Закончить диалог \n• /donate - Поддержать\n\nНе знаешь, о чём поговорить? Используй команду /help а встроенная нейросеть поможет!\n\nФильтр поиска: {filter_gender}</b>'
+
+    await callback.message.answer(f'<b>Поиск отменен\n\n{answer_text}</b>',
                                     reply_markup=kb.start_kb)
     await set_state_exit(user_id=callback.message.chat.id)
     await state.clear()
@@ -93,8 +125,33 @@ async def finish_search(callback: CallbackQuery, state: FSMContext):
 @user_router.callback_query(F.data == 'back')
 async def back(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.clear()
-    await callback.message.edit_text('<b>Привет этот бот создан для общения!</b>',
+    current_state = await state.get_state()
+    if current_state != 'Dialogue:search' and current_state != 'Dialogue:found':
+        await state.clear()
+    filter_gender = await get_filters(user_id=callback.message.chat.id)
+    if filter_gender is None:
+        filter_gender = 'не указан'
+    else:
+        filter_gender = 'мужской' if filter_gender.get('gender') == 'man' else 'женский'
+    answer_text = f'<b>👋Добро пожаловать в чат-бота для знакомств! Хочешь найти новых друзей или отлично провести время? Скорее ищи собеседника!\nДля работы используй кнопки или команды:\n\n• /start - Запуск\n• /form - Анкета\n• /search - Поиск \n• /info - Правила \n• /stop - Закончить диалог \n• /donate - Поддержать\n\nНе знаешь, о чём поговорить? Используй команду /help а встроенная нейросеть поможет!\n\nФильтр поиска: {filter_gender}</b>'
+
+    await callback.message.edit_text(answer_text,
+                                    reply_markup=kb.start_kb)
+
+@user_router.callback_query(F.data == 'back_new_message')
+async def back(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    current_state = await state.get_state()
+    if current_state != 'Dialogue:search' and current_state != 'Dialogue:found':
+        await state.clear()
+    filter_gender = await get_filters(user_id=callback.message.chat.id)
+    if filter_gender is None:
+        filter_gender = 'не указан'
+    else:
+        filter_gender = 'мужской' if filter_gender.get('gender') == 'man' else 'женский'
+    answer_text = f'<b>👋Добро пожаловать в чат-бота для знакомств! Хочешь найти новых друзей или отлично провести время? Скорее ищи собеседника!\nДля работы используй кнопки или команды:\n\n• /start - Запуск\n• /form - Анкета\n• /search - Поиск \n• /info - Правила \n• /stop - Закончить диалог \n• /donate - Поддержать\n\nНе знаешь, о чём поговорить? Используй команду /help а встроенная нейросеть поможет!\n\nФильтр поиска: {filter_gender}</b>'
+
+    await callback.message.answer(answer_text,
                                     reply_markup=kb.start_kb)
 
 '''
@@ -106,14 +163,14 @@ async def add_form(callback: CallbackQuery, state: FSMContext):
     
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await callback.message.answer('Нельзя изменить анкету во время поиска собеседника или диалога')
+        await callback.message.answer('<b>Нельзя изменить анкету во время поиска собеседника или диалога</b>')
         return
     data = await check_user(user_id=callback.message.chat.id)
     if not data.name or not data.age or not data.gender:
-        await callback.message.answer('Для начала надо создать анкету, выберите свой пол',
+        await callback.message.answer('<b>Для начала надо создать анкету, выберите свой пол</b>',
                                         reply_markup=kb.gender_kb)
     else:
-        await callback.message.answer('Анкета уже создана')
+        await callback.message.answer('<b>Анкета уже создана</b>')
 
 @user_router.callback_query(F.data.startswith('gender_'))
 async def gender(callback: CallbackQuery, state: FSMContext):
@@ -121,41 +178,41 @@ async def gender(callback: CallbackQuery, state: FSMContext):
     
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await callback.message.answer('Нельзя изменить анкету во время поиска собеседника или диалога')
+        await callback.message.answer('<b>Нельзя изменить анкету во время поиска собеседника или диалога</b>')
         return
     gender = callback.data[7:]
     await add_gender(user_id=callback.message.chat.id, gender=gender)
-    await callback.message.answer('<b>Отлично, Напишите свое имя</b>', 
+    await callback.message.answer('<b>Отлично, напишите свое имя</b>', 
                                     reply_markup=kb.back_kb)
     await state.set_state(Form.name)
 
 @user_router.message(Form.name)
 async def name(message: Message, state: FSMContext):
     if message.content_type != ContentType.TEXT:
-        await message.answer('Неправильный формат',
+        await message.answer('<b>Неправильный формат</b>',
                                 reply_markup=kb.back_kb)
         return
     if len(message.text) > 30 or '/' in message.text or ':' in message.text or '.' in message.text or '@' in message.text : 
-        await message.answer('Ошибка в имени, попробуйте еще раз',
+        await message.answer('<b>Ошибка в имени, попробуйте еще раз</b>',
                                 reply_markup=kb.back_kb)
     else:
         await add_name(user_id=message.from_user.id, name=message.text)
-        await message.answer('Отлично, напишите свой возраст',
+        await message.answer('<b>Отлично, напишите свой возраст</b>',
                                 reply_markup=kb.back_kb)
         await state.set_state(Form.age)
 
 @user_router.message(Form.age)
 async def age(message: Message, state: FSMContext):
     if message.content_type != ContentType.TEXT:
-        await message.answer('Неправильный формат',
+        await message.answer('<b>Неправильный формат</b>',
                                 reply_markup=kb.back_kb)
         return
     if not message.text.isdigit() or int(message.text) < 1 or int(message.text) > 150:
-        await message.answer('Ошибка в возрасте, попробуйте еще раз',
+        await message.answer('<b>Ошибка в возрасте, введите еще раз</b>',
                                 reply_markup=kb.back_kb)
     else:
         await add_age(user_id=message.from_user.id, age=int(message.text))
-        await message.answer('Отлично анкета готова',
+        await message.answer('<b>Отлично анкета готова</b>',
                             reply_markup=kb.start_kb)
         await commit_form(user_id=message.from_user.id)
         await state.clear()
@@ -168,24 +225,24 @@ async def my_form(callback: CallbackQuery):
     
     user = await check_user(user_id=callback.message.chat.id) 
     if user.name and user.age and user.gender:
-        gender = 'Мужской' if user.gender == 'man' else 'Женский'
+        gender = 'мужской' if user.gender == 'man' else 'женский'
         name = user.name.replace('<', '&lt;').replace('>', '&gt;')
-        await callback.message.edit_text(f'Ваша анкета:\n\nПол: {gender}\nИмя: {name}\nВозраст: {user.age}\n\nЕсли хотите что нибудь изменить выберите ниже',
+        await callback.message.edit_text(f'<b>Ваша анкета:\n\nПол: {gender}\nИмя: {name}\nВозраст: {user.age}\n\nЕсли хотите что нибудь изменить выберите ниже</b>',
                                         reply_markup=kb.edit_kb)
     else:
-        await callback.message.edit_text('Ваша анкета еще не создана', 
+        await callback.message.edit_text('<b>Ваша анкета еще не создана</b>', 
                                         reply_markup=kb.add_form)
 
 @user_router.message(Command('form'))
 async def form_func(message: Message):
     user = await check_user(user_id=message.from_user.id) 
     if user.name and user.age and user.gender:
-        gender = 'Мужской' if user.gender == 'man' else 'Женский'
+        gender = 'мужской' if user.gender == 'man' else 'женский'
         name = user.name.replace('<', '&lt;').replace('>', '&gt;')
-        await message.edit_text(f'Ваша анкета:\n\nПол: {gender}\nИмя: {name}\nВозраст: {user.age}\n\nЕсли хотите что нибудь изменить выберите ниже',
+        await message.answer(f'<b>Ваша анкета:\n\nПол: {gender}\nИмя: {name}\nВозраст: {user.age}\n\nЕсли хотите что нибудь изменить выберите ниже</b>',
                                         reply_markup=kb.edit_kb)
     else:
-        await message.edit_text('Ваша анкета еще не создана', 
+        await message.answer('<b>Ваша анкета еще не создана</b>', 
                                         reply_markup=kb.add_form)
 
 @user_router.callback_query(F.data == 'edit_gender')
@@ -194,9 +251,9 @@ async def choose_gender(callback: CallbackQuery, state: FSMContext):
     
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await callback.message.answer('Нельзя изменить анкету во время поиска собеседника или диалога')
+        await callback.message.answer('<b>Нельзя изменить анкету во время поиска собеседника или диалога</b>')
         return
-    await callback.message.answer('Выберите свой пол',
+    await callback.message.answer('<b>Выберите свой пол</b>',
                                     reply_markup=kb.edit_gender)
 
 @user_router.callback_query(F.data.startswith('edit_gender_'))
@@ -205,13 +262,13 @@ async def edit_gender(callback: CallbackQuery,state: FSMContext):
     
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await callback.message.answer('Нельзя изменить анкету во время поиска собеседника или диалога')
+        await callback.message.answer('<b>Нельзя изменить анкету во время поиска собеседника или диалога</b>')
         return
     gender = callback.data[12:]
     await add_gender(user_id=callback.message.chat.id, gender=gender)
     
-    gender = 'Мужской' if gender == 'man' else 'Женский'
-    await callback.message.answer(f'Пол успешно изменен на {gender}',
+    gender = 'мужской' if gender == 'man' else 'женский'
+    await callback.message.answer(f'<b>Пол успешно изменен на {gender}</b>',
                                     reply_markup=kb.start_kb)
 
 @user_router.callback_query(F.data == 'edit_name')
@@ -220,24 +277,24 @@ async def write_name(callback: CallbackQuery, state: FSMContext):
     
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await callback.message.answer('Нельзя изменить анкету во время поиска собеседника или диалога')
+        await callback.message.answer('<b>Нельзя изменить анкету во время поиска собеседника или диалога</b>')
         return
-    await callback.message.answer('Напишите имя',
+    await callback.message.answer('<b>напишите ваше имя</b>',
                                     reply_markup=kb.back_kb)
     await state.set_state(EditForm.name)
 
 @user_router.message(EditForm.name)
 async def edit_name(message: Message, state: FSMContext):
     if message.content_type != ContentType.TEXT:
-        await message.answer('Неправильный формат',
+        await message.answer('<b>Неправильный формат</b>',
                                 reply_markup=kb.back_kb)
         return
     if len(message.text) > 30 or '/' in message.text or ':' in message.text or '.' in message.text or '@' in message.text : 
-        await message.answer('Ошибка в имени, попробуйте еще раз',
+        await message.answer('<b>Ошибка в имени, введите еще раз</b>',
                                 reply_markup=kb.back_kb)
     else:
         await add_name(user_id=message.from_user.id, name=message.text)
-        await message.answer(f'Имя изменено на {message.text}',
+        await message.answer(f'<b>Имя изменено на {message.text}</b>',
                                 reply_markup=kb.start_kb)
         await state.clear()
 
@@ -247,43 +304,59 @@ async def write_age(callback: CallbackQuery, state: FSMContext):
     
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await callback.message.answer('Нельзя изменить анкету во время поиска собеседника или диалога')
+        await callback.message.answer('<b>Нельзя изменить анкету во время поиска собеседника или диалога</b>')
         return
-    await callback.message.answer('Напишите возраст',
+    await callback.message.answer('<b>Введите возраст</b>',
                                     reply_markup=kb.back_kb)
     await state.set_state(EditForm.age)
 
 @user_router.message(EditForm.age)
 async def edit_age(message: Message, state: FSMContext):
     if message.content_type != ContentType.TEXT:
-        await message.answer('Неправильный формат',
+        await message.answer('<b>Неправильный формат</b>',
                                 reply_markup=kb.back_kb)
         return
     if not message.text.isdigit() or int(message.text) < 1 or int(message.text) > 150:
-        await message.answer('Ошибка в возрасте, попробуйте еще раз',
+        await message.answer('<b>Ошибка в возрасте, введите еще раз</b>',
                                 eply_markup=kb.back_kb)
     else:
         await add_age(user_id=message.from_user.id, age=int(message.text))
-        await message.answer(f'Возраст изменен на {message.text}',
+        await message.answer(f'<b>Возраст изменен на {message.text}</b>',
                             reply_markup=kb.start_kb)
         await commit_form(user_id=message.from_user.id)
         await state.clear()
+'''
+HELP
+'''
+@user_router.message(Command('help'))
+async def help(message: Message):
+    await message.answer(f'<b>Помощ от нейроести: </b><i>{choice(OPTIONS)}</i>\n\nЕсли не подошло используй /help еще раз')
+
 '''
 CHATTING
 '''
 @user_router.message(Dialogue.found)
 async def companion_found(message: Message, state: FSMContext):
     companion_id = await get_companion_id(user_id=message.from_user.id)
+    filter_gender = await get_filters(user_id=message.from_user.id)
+    if filter_gender is None:
+        filter_gender = 'не указан'
+    else:
+        filter_gender = 'мужской' if filter_gender.get('gender') == 'man' else 'женский'
+    answer_after_stop_text = f'<b>Для работы с ботом используй кнопки или команды:\n\n• /start - Запуск\n• /form - Анкета\n• /search - Поиск \n• /info - Правила \n• /stop - Закончить диалог \n• /donate - Поддержать\n\nНе знаешь, о чём поговорить? Используй команду /help а встроенная нейросеть поможет!\n\nФильтр поиска: {filter_gender}</b>'
+
     
     if message.text == '/stop':
-        await message.answer('Диалог завершен',
+        await message.answer('<b>Диалог завершен, можете оценить компаньона</b>',
                                 reply_markup=kb.rating(to_user_id=companion_id))
-        await message.answer('Привет этот бот создан для общения',
+        await message.answer(answer_after_stop_text,
                                 reply_markup=kb.start_kb)
-        await bot.send_message(chat_id=companion_id, text='Собеседник завершил диалог',
-                                reply_markup=kb.rating(to_user_id=message.from_user.id))
-        await bot.send_message(chat_id=companion_id, text='Привет этот бот создан для общения',
-                                reply_markup=kb.start_kb)
+        try:
+            await bot.send_message(chat_id=companion_id, text='<b>Собеседник завершил диалог, можете оценить компаньона</b>',
+                                    reply_markup=kb.rating(to_user_id=message.from_user.id))
+            await bot.send_message(chat_id=companion_id, text=answer_after_stop_text,
+                                    reply_markup=kb.start_kb)
+        except: pass
         await set_state_exit(user_id=message.from_user.id)
         await set_state_exit(user_id=companion_id)
         
@@ -292,20 +365,22 @@ async def companion_found(message: Message, state: FSMContext):
         await dp.storage.set_state(key=storage_key, state=None)
         return
     
-    if message.content_type == ContentType.TEXT:
-        await bot.send_message(chat_id=companion_id, text=message.text, parse_mode=None)
-    elif message.content_type == ContentType.PHOTO:
-        await bot.send_photo(chat_id=companion_id, photo=message.photo[-1].file_id, caption=message.caption)
-    elif message.content_type == ContentType.VIDEO:
-        await bot.send_video(chat_id=companion_id, video=message.video.file_id, caption=message.caption)
-    elif message.content_type == ContentType.AUDIO:
-        await bot.send_audio(chat_id=companion_id, audio=message.audio.file_id, caption=message.caption)
-    elif message.content_type == ContentType.VIDEO_NOTE:
-        await bot.send_video_note(chat_id=companion_id, video_note=message.video_note.file_id)
-    elif message.content_type == ContentType.STICKER:
-        await bot.send_sticker(chat_id=companion_id, sticker=message.sticker.file_id)
-    elif message.content_type == ContentType.ANIMATION:
-        await bot.send_animation(chat_id=companion_id, animation=message.animation.file_id, caption=message.caption)
+    try:
+        if message.content_type == ContentType.TEXT:
+            await bot.send_message(chat_id=companion_id, text=message.text, parse_mode=None)
+        elif message.content_type == ContentType.PHOTO:
+            await bot.send_photo(chat_id=companion_id, photo=message.photo[-1].file_id, caption=message.caption)
+        elif message.content_type == ContentType.VIDEO:
+            await bot.send_video(chat_id=companion_id, video=message.video.file_id, caption=message.caption)
+        elif message.content_type == ContentType.AUDIO:
+            await bot.send_audio(chat_id=companion_id, audio=message.audio.file_id, caption=message.caption)
+        elif message.content_type == ContentType.VIDEO_NOTE:
+            await bot.send_video_note(chat_id=companion_id, video_note=message.video_note.file_id)
+        elif message.content_type == ContentType.STICKER:
+            await bot.send_sticker(chat_id=companion_id, sticker=message.sticker.file_id)
+        elif message.content_type == ContentType.ANIMATION:
+            await bot.send_animation(chat_id=companion_id, animation=message.animation.file_id, caption=message.caption)
+    except: pass
 '''
 RAITING
 '''
@@ -327,18 +402,18 @@ async def dislike_user_func(callback: CallbackQuery):
     else:
         await callback.answer('Вы уже ставили дизлайк этому пользователю!')
 '''
-FILTERS 
+FILTERS
 '''
 @user_router.callback_query(F.data == 'filters')
 async def filters(callback: CallbackQuery):
     await callback.answer()
     data = await get_filters(user_id=callback.message.chat.id)
     if data:
-        filter_gender = 'Мужской' if data.get('gender') == 'man' else 'Женский'
-        await callback.message.answer(f'Фильтры\n\nПол: {filter_gender}\nможете сменить ниже',
+        filter_gender = 'мужской' if data.get('gender') == 'man' else 'женский'
+        await callback.message.edit_text(f'<b>Фильтры\n\nПол: {filter_gender}\nможете сменить ниже</b>',
                                         reply_markup=kb.filters_kb)
     else:
-        await callback.message.answer('Фильтры\n\nПол: Не указано\nможете выбрать ниже',
+        await callback.message.edit_text('<b>Фильтры\n\nПол: не указано\nможете выбрать ниже</b>',
                                         reply_markup=kb.filters_kb)
 
 @user_router.callback_query(F.data.startswith('filter_'))
@@ -346,27 +421,35 @@ async def filter_gender_func(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await callback.message.answer('Нельзя изменить фильтр во время поиска собеседника или диалога')
+        await callback.message.answer('<b>Нельзя изменить фильтр во время поиска собеседника или диалога</b>')
         return
     filter_gender = callback.data[7:]
     if filter_gender == 'reset':
         await reset_filter_gender(user_id=callback.message.chat.id)
-        await callback.message.edit_text(f'Фильтр сброшен!\n\nПол: Не указано',
+        await callback.message.edit_text(f'<b>Фильтр поиска успешно сброшен!\n\nПол: не указано</b>',
                                         reply_markup=kb.start_kb)
         return
     await add_filter_gender(user_id=callback.message.chat.id, filter_gender=filter_gender)
-    filter_gender = 'Мужской' if filter_gender == 'man' else 'Женский'
-    await callback.message.edit_text(f'Фильтр изменен!\n\nПол: {filter_gender}',
+    filter_gender = 'мужской' if filter_gender == 'man' else 'женский'
+    await callback.message.edit_text(f'<b>Фильтр поиска успешно изменен!\n\nПол: {filter_gender}</b>',
                                         reply_markup=kb.start_kb)
 '''
 INFO ABOUT BOT
 '''
 @user_router.message(Command('info'))
 async def info(message: Message):
-    await message.answer('Правила')
+    await message.answer('<b>Запрещено\n\n1) Рассылать спам-сообщения и зазывать в другие каналы/чаты\n2) Отправлять ссылки на сторонние ресурсы, если они не были одобрены администрацией бота\n3) Оскорблять и унижать других пользователей\n4) Пытаться обмануть или получить информацию конфиденциального характера у других пользователей\n5) Использовать бота для рекламы своих товаров или услуг\nАдминистрация проекта оставляет за собой право заблокировать пользователя, нарушившего какое либо из правил\n\nСпасибо за понимание</b>')
 '''
 OTHER
 '''
+@user_router.message(Command('stop'))
+async def stop(message: Message):
+    await message.answer('<b>У вас нет активного диалога</b>')
+
+@user_router.message(Command('donate'))
+async def stop(message: Message):
+    await message.answer_photo('https://ibb.co/Mxqy18Ds', caption=f'<b>Поддежать проект можно через CloudTips сканируя QR код выше или нажав <a href="{DONATE_URL}">Поддержать</a></b>',
+                                reply_markup=kb.back_new_message_kb)
 @user_router.message()
 async def other(message: Message):
-    await message.answer('Я не знаю такую команду')
+    await message.answer('<b>Упс, я не знаю такую команду</b>')

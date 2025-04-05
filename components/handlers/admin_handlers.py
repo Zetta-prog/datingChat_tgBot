@@ -14,10 +14,11 @@ admin_router = Router()
 
 @admin_router.message(Command('admin'))
 async def admin(message: Message):
-    amount = await amount_of_users()
-    
-    await message.answer(f'Количество пользователей: {amount}\n\n',
-                            reply_markup=kb_admin)
+    if message.from_user.id == 7354297309:
+        amount = await amount_of_users()
+        
+        await message.answer(f'Количество пользователей: {amount}\n\n',
+                                reply_markup=kb_admin)
 
 @admin_router.callback_query(F.data == 'mailing')
 async def write_mail(callback: CallbackQuery, state: FSMContext):
