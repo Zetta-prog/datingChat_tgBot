@@ -410,10 +410,10 @@ async def filters(callback: CallbackQuery):
     data = await get_filters(user_id=callback.message.chat.id)
     if data:
         filter_gender = 'мужской' if data.get('gender') == 'man' else 'женский'
-        await callback.message.edit_text(f'<b>Фильтры\n\nПол: {filter_gender}\nможете сменить ниже</b>',
+        await callback.message.edit_text(f'<b>Изменить фильтр поиска можете, нажав кнопку ниже\n\nФильтр: {filter_gender}</b>',
                                         reply_markup=kb.filters_kb)
     else:
-        await callback.message.edit_text('<b>Фильтры\n\nПол: не указано\nможете выбрать ниже</b>',
+        await callback.message.edit_text('<b>Изменить фильтр поиска можете, нажав кнопку ниже\n\nФильтр: не указано</b>',
                                         reply_markup=kb.filters_kb)
 
 @user_router.callback_query(F.data.startswith('filter_'))
