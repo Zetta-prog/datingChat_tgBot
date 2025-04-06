@@ -39,7 +39,7 @@ async def start_dialogue(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await callback.message.answer('<b>Нельзя начать поиск в данный момент</b>')
+        await callback.message.answer('<b>Нельзя начать поиск во время поиска собеседника или диалога</b>')
         return
     user = await check_user(user_id=callback.message.chat.id)
     if user and user.ready == True:
@@ -73,7 +73,7 @@ async def start_dialogue(callback: CallbackQuery, state: FSMContext):
 async def search_func(message: Message, state: FSMContext):
     current_state = await state.get_state()
     if current_state == 'Dialogue:search' or current_state == 'Dialogue:found':
-        await message.answer('<b>Нельзя начать поиск в данный момент</b>')
+        await message.answer('<b>Нельзя начать поиск во время поиска собеседника или диалога</b>')
         return
     user = await check_user(user_id=message.from_user.id)
     if user and user.ready == True:
@@ -117,7 +117,7 @@ async def finish_search(callback: CallbackQuery, state: FSMContext):
         filter_gender = 'мужской' if filter_gender.get('gender') == 'man' else 'женский'
     answer_text = f'<b>Для работы с ботом используй кнопки или команды:\n\n• /start - Запуск\n• /form - Анкета\n• /search - Поиск \n• /info - Правила \n• /stop - Закончить диалог \n• /donate - Поддержать\n\nНе знаешь, о чём поговорить? Используй команду /help а встроенная нейросеть поможет!\n\nФильтр поиска: {filter_gender}</b>'
 
-    await callback.message.answer(f'<b>Поиск отменен\n\n{answer_text}</b>',
+    await callback.message.edit_text(f'<b>Поиск отменен\n\n{answer_text}</b>',
                                     reply_markup=kb.start_kb)
     await set_state_exit(user_id=callback.message.chat.id)
     await state.clear()
@@ -227,7 +227,7 @@ async def my_form(callback: CallbackQuery):
     if user.name and user.age and user.gender:
         gender = 'мужской' if user.gender == 'man' else 'женский'
         name = user.name.replace('<', '&lt;').replace('>', '&gt;')
-        await callback.message.edit_text(f'<b>Ваша анкета:\n\nПол: {gender}\nИмя: {name}\nВозраст: {user.age}\n\nЕсли хотите что нибудь изменить выберите ниже</b>',
+        await callback.message.edit_text(f'<b><i>ВАША АНКЕТА</i>\n\nПол: {gender}\nИмя: {name}\nВозраст: {user.age}\n\nЕсли хотите что нибудь изменить выберите ниже</b>',
                                         reply_markup=kb.edit_kb)
     else:
         await callback.message.edit_text('<b>Ваша анкета еще не создана</b>', 
@@ -239,7 +239,7 @@ async def form_func(message: Message):
     if user.name and user.age and user.gender:
         gender = 'мужской' if user.gender == 'man' else 'женский'
         name = user.name.replace('<', '&lt;').replace('>', '&gt;')
-        await message.answer(f'<b>Ваша анкета:\n\nПол: {gender}\nИмя: {name}\nВозраст: {user.age}\n\nЕсли хотите что нибудь изменить выберите ниже</b>',
+        await message.answer(f'<b><i>ВАША АНКЕТА</i>\n\nПол: {gender}\nИмя: {name}\nВозраст: {user.age}\n\nЕсли хотите что нибудь изменить выберите ниже</b>',
                                         reply_markup=kb.edit_kb)
     else:
         await message.answer('<b>Ваша анкета еще не создана</b>', 
