@@ -2,6 +2,9 @@ from aiogram.types import Message, CallbackQuery, ContentType
 from aiogram.filters import Command
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
+from dotenv import load_dotenv
+
+import os
 
 from database.crud import amount_of_users, get_all_users_id
 from components.keyboards.admin_kb import kb_admin, kb_cancel
@@ -11,10 +14,11 @@ from core.init_bot import bot
 
 admin_router = Router()
 
+load_dotenv()
 
 @admin_router.message(Command('admin'))
 async def admin(message: Message):
-    if message.from_user.id == 7354297309:
+    if message.from_user.id == int(os.getenv('ADMIN_ID')):
         amount = await amount_of_users()
         
         await message.answer(f'Количество пользователей: {amount}\n\n',
