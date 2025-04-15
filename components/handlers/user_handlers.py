@@ -447,7 +447,7 @@ async def stop(message: Message):
     await message.answer('<b>У вас нет активного диалога</b>')
 
 @user_router.message(Command('donate'))
-async def stop(message: Message):
+async def donate(message: Message):
     await message.answer_photo('https://ibb.co/Mxqy18Ds', caption=f'<b>Поддежать проект можно через CloudTips сканируя QR код выше или нажав <a href="{DONATE_URL}">Поддержать</a></b>',
                                 reply_markup=kb.back_new_message_kb)
 @user_router.message()
