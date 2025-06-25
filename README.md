@@ -44,5 +44,5 @@ DONATE_URL = "https://ваша_ссылка_на_донат"
 
 ## 🚀 Запуск бота
 ```bash
-python bot.py
+python main.py
 ```
